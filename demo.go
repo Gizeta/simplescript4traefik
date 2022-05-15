@@ -1,65 +1,46 @@
-// Package plugindemo a demo plugin.
-package plugindemo
+// Package simplescript4traefik a demo plugin.
+package simplescript4traefik
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"net/http"
-	"text/template"
 )
 
 // Config the plugin configuration.
 type Config struct {
-	Headers map[string]string `json:"headers,omitempty"`
+	Code 	string `json:"code"`
 }
 
 // CreateConfig creates the default plugin configuration.
 func CreateConfig() *Config {
 	return &Config{
-		Headers: make(map[string]string),
+		Code: "",
 	}
 }
 
-// Demo a Demo plugin.
-type Demo struct {
-	next     http.Handler
-	headers  map[string]string
+// Demo a ScriptPlugin plugin.
+type ScriptPlugin struct {
 	name     string
-	template *template.Template
+	next     http.Handler
+	code     string
 }
 
-// New created a new Demo plugin.
+// New created a new ScriptPlugin plugin.
 func New(ctx context.Context, next http.Handler, config *Config, name string) (http.Handler, error) {
-	if len(config.Headers) == 0 {
-		return nil, fmt.Errorf("headers cannot be empty")
-	}
-
-	return &Demo{
-		headers:  config.Headers,
-		next:     next,
-		name:     name,
-		template: template.New("demo").Delims("[[", "]]"),
+	return &ScriptPlugin{
+		name: name,
+		next: next,
+		code: config.Code,
 	}, nil
 }
 
-func (a *Demo) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
-	for key, value := range a.headers {
-		tmpl, err := a.template.Parse(value)
-		if err != nil {
-			http.Error(rw, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		writer := &bytes.Buffer{}
-
-		err = tmpl.Execute(writer, req)
-		if err != nil {
-			http.Error(rw, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		req.Header.Set(key, writer.String())
+func (a *ScriptPlugin) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
+	if a.code != "" {
+		env := CreateEnv()
+		RegisterTraefikBuiltin(&env, &rw, req, &(a.next))
+		RunScript(a.code, &env)
+		return
 	}
 
 	a.next.ServeHTTP(rw, req)

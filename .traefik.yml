@@ -1,11 +1,13 @@
-displayName: Demo Plugin
+displayName: Scriptable Middleware Plugin
 type: middleware
 
-import: github.com/traefik/plugindemo
+import: github.com/Gizeta/simplescript4traefik
 
-summary: '[Demo] Add Request Header'
+summary: 'A experiment middleware for traefik running Lisp-liked script'
 
 testData:
-  Headers:
-    X-Demo: test
-    X-URL: '{{URL}}'
+  code: |
+    (if (! (str_contains (get_req_path) "pass"))
+      (halt 403 "Not Allowed")
+      ((set_req_header "pass" "1")
+        (run_next)))
